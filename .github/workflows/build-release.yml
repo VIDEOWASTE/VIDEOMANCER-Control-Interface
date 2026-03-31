@@ -100,7 +100,6 @@ jobs:
 
             ### Known Issues
             - TSS (Time/Space/Slope) knob UI response is under development — commands send to device but visual feedback may not reflect changes
-            - Some controls may require firmware RC12+ for full functionality
 
             ### Run from source
             ```
