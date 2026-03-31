@@ -1,0 +1,109 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v0.3, v1.0.0
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install PyQt6 pyserial py2app
+
+      - name: Build .app
+        run: |
+          python setup.py py2app
+
+      - name: Remove Gatekeeper quarantine
+        run: xattr -cr "dist/Videomancer Control.app"
+
+      - name: Create zip
+        run: |
+          cd dist
+          zip -r ../VideomancerControl_macOS.zip "Videomancer Control.app"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: VideomancerControl_macOS.zip
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install PyQt6 pyserial pyinstaller
+
+      - name: Build .exe
+        run: |
+          pyinstaller --onefile --windowed --name "VideomancerControl" --add-data "VM_Logo.png;." --add-data "VM.png;." --hidden-import serial.tools.list_ports main.py
+
+      - name: Create zip
+        run: |
+          Compress-Archive -Path "dist\VideomancerControl.exe" -DestinationPath VideomancerControl_Windows.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: VideomancerControl_Windows.zip
+
+  release:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-app
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Videomancer Control ${{ github.ref_name }}
+          body: |
+            ## Videomancer Control ${{ github.ref_name }}
+
+            Desktop companion app for the LZX Industries Videomancer.
+
+            ### Downloads
+            - **macOS**: `VideomancerControl_macOS.zip` — extract and run. First launch: System Settings > Privacy & Security > Open Anyway
+            - **Windows**: `VideomancerControl_Windows.zip` — extract and run the .exe
+
+            ### Run from source
+            ```
+            pip install PyQt6 pyserial
+            python main.py
+            ```
+          files: |
+            VideomancerControl_macOS.zip
+            VideomancerControl_Windows.zip
+          draft: false
+          prerelease: false
