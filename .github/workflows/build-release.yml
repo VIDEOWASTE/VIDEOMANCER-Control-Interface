@@ -24,8 +24,6 @@ jobs:
           pyinstaller --onedir --windowed \
             --name "Videomancer Control" \
             --icon "icon.icns" \
-            --add-data "VM_Logo.png:." \
-            --add-data "VM.png:." \
             --hidden-import serial.tools.list_ports \
             main.py
 
@@ -55,7 +53,7 @@ jobs:
 
       - name: Build .exe
         run: |
-          pyinstaller --onefile --windowed --name "VideomancerControl" --icon "icon.ico" --add-data "VM_Logo.png;." --add-data "VM.png;." --hidden-import serial.tools.list_ports main.py
+          pyinstaller --onefile --windowed --name "VideomancerControl" --icon "icon.ico" --hidden-import serial.tools.list_ports main.py
 
       - name: Create zip
         run: |
