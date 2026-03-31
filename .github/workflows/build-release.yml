@@ -3,7 +3,7 @@ name: Build & Release
 on:
   push:
     tags:
-      - 'v*'  # Trigger on version tags like v0.3, v1.0.0
+      - 'v*'
 
 jobs:
   build-macos:
@@ -17,15 +17,16 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: |
-          pip install PyQt6 pyserial py2app
+        run: pip install PyQt6 pyserial pyinstaller
 
       - name: Build .app
         run: |
-          python setup.py py2app
-
-      - name: Remove Gatekeeper quarantine
-        run: xattr -cr "dist/Videomancer Control.app"
+          pyinstaller --onedir --windowed \
+            --name "Videomancer Control" \
+            --add-data "VM_Logo.png:." \
+            --add-data "VM.png:." \
+            --hidden-import serial.tools.list_ports \
+            main.py
 
       - name: Create zip
         run: |
@@ -49,8 +50,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: |
-          pip install PyQt6 pyserial pyinstaller
+        run: pip install PyQt6 pyserial pyinstaller
 
       - name: Build .exe
         run: |
