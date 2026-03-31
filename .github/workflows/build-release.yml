@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  build-macos:
+  build-macos-arm:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,13 +31,46 @@ jobs:
       - name: Create zip
         run: |
           cd dist
-          zip -r ../VideomancerControl_macOS.zip "VideomancerControl.app"
+          zip -r ../VideomancerControl_macOS_ARM.zip "VideomancerControl.app"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macos-app
-          path: VideomancerControl_macOS.zip
+          name: macos-arm
+          path: VideomancerControl_macOS_ARM.zip
+
+  build-macos-intel:
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install PyQt6 pyserial pyinstaller
+
+      - name: Build binary
+        run: |
+          pyinstaller --onefile --windowed \
+            --name "VideomancerControl" \
+            --icon "icon.icns" \
+            --hidden-import serial.tools.list_ports \
+            --collect-submodules PyQt6 \
+            main.py
+
+      - name: Create zip
+        run: |
+          cd dist
+          zip -r ../VideomancerControl_macOS_Intel.zip "VideomancerControl.app"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-intel
+          path: VideomancerControl_macOS_Intel.zip
 
   build-windows:
     runs-on: windows-latest
@@ -67,17 +100,22 @@ jobs:
           path: VideomancerControl_Windows.zip
 
   release:
-    needs: [build-macos, build-windows]
+    needs: [build-macos-arm, build-macos-intel, build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download macOS artifact
+      - name: Download macOS ARM artifact
         uses: actions/download-artifact@v4
         with:
-          name: macos-app
+          name: macos-arm
+
+      - name: Download macOS Intel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-intel
 
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
@@ -94,11 +132,16 @@ jobs:
             Desktop companion app for the LZX Industries Videomancer.
 
             ### Downloads
-            - **macOS**: `VideomancerControl_macOS.zip` — extract and run. First launch: System Settings > Privacy & Security > Open Anyway
-            - **Windows**: `VideomancerControl_Windows.zip` — extract and run the .exe
+            | Platform | File | Chip |
+            |----------|------|------|
+            | **macOS** | `VideomancerControl_macOS_ARM.zip` | Apple Silicon (M1/M2/M3/M4) |
+            | **macOS** | `VideomancerControl_macOS_Intel.zip` | Intel |
+            | **Windows** | `VideomancerControl_Windows.zip` | x64 |
+
+            First launch on macOS: System Settings > Privacy & Security > Open Anyway
 
             ### Known Issues
-            - TSS (Time/Space/Slope) knob UI response is under development — commands send to device but visual feedback may not reflect changes
+            - TSS (Time/Space/Slope) knob UI response is under development
 
             ### Run from source
             ```
@@ -106,7 +149,8 @@ jobs:
             python main.py
             ```
           files: |
-            VideomancerControl_macOS.zip
+            VideomancerControl_macOS_ARM.zip
+            VideomancerControl_macOS_Intel.zip
             VideomancerControl_Windows.zip
           draft: false
           prerelease: true
