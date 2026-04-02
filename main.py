@@ -13,7 +13,7 @@ Run:
     python3 main.py
 """
 
-APP_VERSION = "1.2"
+APP_VERSION = "1.3"
 GITHUB_REPO = "VIDEOWASTE/VIDEOMANCER-Control-Interface"
 
 import sys
@@ -994,16 +994,18 @@ class KnobWidget(QWidget):
 
         s    = self._size
         cx   = cy = s * 0.5
-        pad  = 5
-        r    = cx - pad
-        arc_w = 4
+        # Scale all dimensions relative to knob size
+        pad   = max(2, s * 0.08)
+        arc_w = max(2, s * 0.07)
+        dot_r = max(2, s * 0.09)
+        r     = cx - pad
         frac  = self._display_frac
 
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # Body
-        p.setPen(QPen(QColor(BORDER), 1.5))
+        p.setPen(QPen(QColor(BORDER), max(1, s * 0.03)))
         p.setBrush(QColor(SURFACE2))
         p.drawEllipse(QPointF(cx, cy), r - arc_w * 0.5 - 1, r - arc_w * 0.5 - 1)
 
@@ -1030,7 +1032,7 @@ class KnobWidget(QWidget):
         iy = cy - r * math.sin(a)
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QColor(ACCENT if frac > 0.001 else BORDER))
-        p.drawEllipse(QPointF(ix, iy), 5, 5)
+        p.drawEllipse(QPointF(ix, iy), dot_r, dot_r)
         p.end()
 
     def mousePressEvent(self, e):
@@ -1084,7 +1086,7 @@ class SmoothFader(QWidget):
         self._velocity     = 0.0   # momentum
         self._last_drag_y  = None
         self.setMinimumHeight(200)
-        self.setMinimumWidth(30)
+        self.setMinimumWidth(50)
         self.setCursor(Qt.CursorShape.SizeVerCursor)
 
         self._timer = QTimer()
@@ -1142,7 +1144,7 @@ class SmoothFader(QWidget):
         track_w = 8
         frac = self._frac()
         fill_h = int(h * frac)
-        handle_w, handle_h = 20, 24
+        handle_w, handle_h = 50, 24
         half_h = handle_h // 2
         # Clamp so handle never clips outside widget bounds
         hy = int(h * (1.0 - frac))
@@ -1169,7 +1171,7 @@ class SmoothFader(QWidget):
         border_color = "#c040c0" if self._dragging else "#9955cc"
         p.setBrush(QColor(handle_color))
         p.setPen(QPen(QColor(border_color), 2))
-        p.drawRoundedRect(hx, hy - handle_h//2, handle_w, handle_h, 5, 5)
+        p.drawRoundedRect(hx, hy - handle_h//2, handle_w, handle_h, 6, 6)
 
         # Grip lines — 3 horizontal notches across centre
         line_color = QColor("#ffffff" if self._dragging else "#9988cc")
@@ -1178,7 +1180,7 @@ class SmoothFader(QWidget):
         cx = hx + handle_w // 2
         for offset in (-4, 0, 4):
             ly = hy + offset
-            p.drawLine(cx - 5, ly, cx + 5, ly)
+            p.drawLine(cx - 12, ly, cx + 12, ly)
 
         p.end()
 
@@ -1659,6 +1661,12 @@ class ChannelCard(QWidget):
         self._updating = False
         self._is_toggle = 7 <= (index + 1) <= 11
         self._op_index = 0  # current operator index in OPERATORS list
+        # Parameter info from program
+        self._param_min = 0
+        self._param_max = 100
+        self._param_step = 0
+        self._param_values = []
+        self._param_type = ""
 
         self.on_manual_change = None
         self.on_mod_change    = None
@@ -1681,7 +1689,7 @@ class ChannelCard(QWidget):
         top_hdr.setSpacing(4)
         top_hdr.addStretch(1)
 
-        self._num_lbl = QLabel(f"P{index+1} -")
+        self._num_lbl = QLabel(f"{index+1}")
         self._num_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._num_lbl.setStyleSheet(
             f"color:#ffffff;font-weight:bold;font-size:20px;"
@@ -1793,25 +1801,25 @@ class ChannelCard(QWidget):
             self.knob   = None
         else:
             # P1-P6: top=name, knob, TSS, then LFO at bottom
-            knob_outer = QHBoxLayout()
-            knob_outer.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            knob_col = QVBoxLayout()
-            knob_col.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            knob_col.setSpacing(2)
-            self.knob = KnobWidget(size=52)
+            knob_row = QHBoxLayout()
+            knob_row.setContentsMargins(0, 0, 0, 0)
+            knob_row.setSpacing(4)
+            knob_row.addStretch(1)
+            knob_row.addSpacing(22)
+            self.knob = KnobWidget(size=54)
             self.knob.setRange(0, PARAM_RANGE)
             self.knob.setValue(0)
             self.knob.valueChanged.connect(self._on_knob)
-            knob_col.addWidget(self.knob, alignment=Qt.AlignmentFlag.AlignCenter)
+            knob_row.addWidget(self.knob)
             self.val_lbl = QLabel("0%")
-            self.val_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.val_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             self.val_lbl.setStyleSheet(
                 f"color:{TEXT_DIM};font-size:12px;"
                 f"background:transparent;border:none;"
             )
-            knob_col.addWidget(self.val_lbl)
-            knob_outer.addLayout(knob_col)
-            root.addLayout(knob_outer)
+            knob_row.addWidget(self.val_lbl)
+            knob_row.addStretch(1)
+            root.addLayout(knob_row)
             self.slider = None
             self.toggle = None
 
@@ -1827,9 +1835,9 @@ class ChannelCard(QWidget):
                 col = QVBoxLayout()
                 col.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 col.setSpacing(3)
-                mini = KnobWidget(size=32)
+                mini = KnobWidget(size=42)
                 mini.setRange(0, PARAM_RANGE)
-                mini.setValue(512)
+                mini.setValue(0)
                 _field = field
                 mini.valueChanged.connect(lambda v, f=_field: self._on_tss(f, v))
                 self._tss_sliders.append(mini)
@@ -1889,9 +1897,9 @@ class ChannelCard(QWidget):
             col = QVBoxLayout()
             col.setAlignment(Qt.AlignmentFlag.AlignCenter)
             col.setSpacing(2)
-            mini = KnobWidget(size=32)
+            mini = KnobWidget(size=36)
             mini.setRange(0, PARAM_RANGE)
-            mini.setValue(512)
+            mini.setValue(0)
             _field = field
             mini.valueChanged.connect(lambda v, f=_field: self._on_tss(f, v))
             self._tss_sliders.append(mini)
@@ -1939,18 +1947,46 @@ class ChannelCard(QWidget):
 
     def set_param_label(self, name: str, lo: int = 0, hi: int = 100):
         """Set parameter name — shown below knob or above toggle button."""
-        self._num_lbl.setText(f"P{self.index+1} -")
+        self.set_param_info({"name": name, "min": lo, "max": hi})
+
+    def set_param_info(self, p: dict):
+        """Apply full parameter info — name, min, max, step, values, etc."""
+        name = p.get("name", "")
+        self._param_min = p.get("min", 0)
+        self._param_max = p.get("max", 100)
+        self._param_step = p.get("step", 0)
+        self._param_values = p.get("values", p.get("enum", []))
+        self._param_type = p.get("type", "")
+
         if not hasattr(self, '_param_name_lbl'):
             return
-        if name and name not in (f"P{self.index+1}", ""):
+        if name and name not in (f"P{self.index+1}", f"{self.index+1}", ""):
+            self._num_lbl.setText(f"{self.index+1} -")
             self._param_name_lbl.setText(name.upper())
             self._param_name_lbl.setVisible(True)
         else:
+            self._num_lbl.setText(f"{self.index+1}")
             self._param_name_lbl.setVisible(False)
+
+    def _format_value(self, raw: int) -> str:
+        """Format a raw 0-1023 value using parameter info."""
+        # If we have named values/enum, show the step name
+        if self._param_values:
+            n = len(self._param_values)
+            idx = min(int(raw / 1023 * n), n - 1) if n > 0 else 0
+            return str(self._param_values[idx])
+        # If stepped, show step number
+        if self._param_step and self._param_max > self._param_min:
+            steps = (self._param_max - self._param_min) // self._param_step
+            if steps > 0:
+                step_val = self._param_min + round(raw / 1023 * steps) * self._param_step
+                return str(int(step_val))
+        # Default: percentage
+        return f"{round(raw / 10.23)}%"
 
     def set_manual(self, value: int, silent: bool = True):
         self._updating = silent
-        pct = f"{round(value/10.23)}%"
+        pct = self._format_value(value)
         if self._is_toggle:
             on = value >= 512
             self.toggle.setChecked(on)
@@ -2093,7 +2129,7 @@ class ChannelCard(QWidget):
         if self._updating:
             return
         if self.val_lbl:
-            self.val_lbl.setText(f"{round(value/10.23)}%")
+            self.val_lbl.setText(self._format_value(value))
         # Mark as user drag so knob doesn't smooth away from position
         if self.knob:
             self.knob._display_frac = self.knob._frac
@@ -2104,7 +2140,7 @@ class ChannelCard(QWidget):
         if self._updating:
             return
         if self.val_lbl:
-            self.val_lbl.setText(f"{round(value/10.23)}%")
+            self.val_lbl.setText(self._format_value(value))
         if self.on_manual_change:
             self.on_manual_change(self.index, value)
 
@@ -2259,7 +2295,7 @@ class ParametersTab(QWidget):
         fader_v.setContentsMargins(4, 8, 4, 8)
         fader_v.setSpacing(4)
 
-        self._p12_name_lbl = QLabel("INTENSITY")
+        self._p12_name_lbl = QLabel("")
         self._p12_name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._p12_name_lbl.setStyleSheet(
             f"color:#ffffff;font-size:20px;font-weight:bold;letter-spacing:1px;"
@@ -2297,7 +2333,7 @@ class ParametersTab(QWidget):
         # Wire val_lbl_12 to update when slider moves
         if card12.slider:
             card12.slider.valueChanged.connect(
-                lambda v: self.val_lbl_12.setText(f"{round(v/10.23)}%")
+                lambda v: self.val_lbl_12.setText(card12._format_value(v))
             )
 
         # TSS knobs for P12 — replace card's hidden ones with visible ones
@@ -2311,9 +2347,9 @@ class ParametersTab(QWidget):
             col12 = QVBoxLayout()
             col12.setAlignment(Qt.AlignmentFlag.AlignCenter)
             col12.setSpacing(2)
-            mini12 = KnobWidget(size=24)
+            mini12 = KnobWidget(size=32)
             mini12.setRange(0, PARAM_RANGE)
-            mini12.setValue(512)
+            mini12.setValue(0)
             _f = field
             mini12.valueChanged.connect(lambda v, f=_f: card12._on_tss(f, v))
             card12._tss_sliders.append(mini12)
@@ -2353,6 +2389,7 @@ class ParametersTab(QWidget):
         fader_v.addSpacing(2)
         card12._out_bar = ModBar()
         card12._out_bar.setFixedWidth(140)
+        card12._out_bar.setMinimumHeight(70)
         fader_v.addWidget(card12._out_bar, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Wrap fader in a column that extends 80px below the knobs row
@@ -2408,6 +2445,18 @@ class ParametersTab(QWidget):
         self.stop_btn.setEnabled(v)
         self.tap_btn.setEnabled(v)
         self.bpm_slider.setEnabled(v)
+        if not v:
+            if hasattr(self, '_p12_name_lbl'):
+                self._p12_name_lbl.setText("")
+            # Reset all channels to zero and clear param names
+            for card in self.channels:
+                card.set_manual(0, silent=True)
+                card.set_output(0)
+                card._num_lbl.setText(f"{card.index+1}")
+                if hasattr(card, '_param_name_lbl'):
+                    card._param_name_lbl.setVisible(False)
+                if hasattr(card, '_tss_sliders') and card._tss_sliders:
+                    card.set_tss(0, 0, 0, silent=True)
 
     def set_program(self, name: str):
         self.prog_lbl.setText(name or "No program loaded")
@@ -2416,13 +2465,10 @@ class ParametersTab(QWidget):
         """Update channel card labels from program info parameter names."""
         for i, card in enumerate(self.channels):
             if i < len(params):
-                p    = params[i]
-                name = p.get("name", f"P{i+1}")
-                lo   = p.get("min", 0)
-                hi   = p.get("max", 100)
-                card.set_param_label(name, lo, hi)
+                p = params[i]
+                card.set_param_info(p)
             else:
-                card.set_param_label(f"P{i+1}", 0, 100)
+                card.set_param_info({"name": "", "min": 0, "max": 100})
         # Update the P12 fader title from param name
         if hasattr(self, '_p12_name_lbl'):
             if 11 < len(params):
@@ -3561,6 +3607,7 @@ class StateTab(QWidget):
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
+        splitter.setHandleWidth(0)
 
         # ── Left: Quick recall grid + user presets ──
         left = QWidget()
@@ -3568,11 +3615,12 @@ class StateTab(QWidget):
         ll.setContentsMargins(0, 0, 8, 0)
         ll.setSpacing(10)
 
-        # Factory preset grid
-        factory_grp = QGroupBox("Factory Presets")
-        self._factory_grid = QGridLayout(factory_grp)
+        # Factory preset grid (hidden until device sends some)
+        self._factory_grp = QGroupBox("Factory Presets")
+        self._factory_grid = QGridLayout(self._factory_grp)
         self._factory_grid.setSpacing(6)
-        ll.addWidget(factory_grp)
+        self._factory_grp.setVisible(False)
+        ll.addWidget(self._factory_grp)
 
         # User presets
         user_grp = QGroupBox("User Presets")
@@ -3683,6 +3731,8 @@ class StateTab(QWidget):
             btn.clicked.connect(lambda checked, idx=i: self._apply_factory(idx))
             row, col = divmod(i, cols)
             self._factory_grid.addWidget(btn, row, col)
+
+        self._factory_grp.setVisible(len(factory) > 0)
 
         # User list
         self.user_list.clear()
@@ -3812,7 +3862,7 @@ class VideomancerApp(QMainWindow):
         self._edit_cooldown.timeout.connect(self._on_edit_cooldown)
         # Bidirectional sync — poll device every 500ms
         self._poll_timer = QTimer()
-        self._poll_timer.setInterval(100)
+        self._poll_timer.setInterval(250)
         self._poll_timer.timeout.connect(self._poll_device)
         # snapshot collection state
         self._snap_label:    str  = ""
@@ -4067,6 +4117,7 @@ class VideomancerApp(QMainWindow):
                 num = len(_app_windows) + 1
                 self._dual_window = _spawn_window(num)
                 self._dual_window._parent_dual_btn = self._dual_btn
+                self._dual_window._dual_btn.setVisible(False)
         else:
             if self._dual_window is not None and self._dual_window.isVisible():
                 self._dual_window._parent_dual_btn = None
@@ -4248,9 +4299,12 @@ class VideomancerApp(QMainWindow):
                     QTimer.singleShot(1500, self._request_state)
                     QTimer.singleShot(1500, self._fetch_presets)
                     QTimer.singleShot(1800, self._fetch_tss_readback_auto)
+                    QTimer.singleShot(2500, self._fetch_tss_readback)
                 else:
                     # preset apply ok (TSS change)
                     self.status_bar.showMessage("Applied", 1000)
+                    QTimer.singleShot(500, self._fetch_tss_readback_auto)
+                    QTimer.singleShot(1000, self._fetch_tss_readback)
 
             else:
                 # JSON payload — could be state or preset list
@@ -4264,6 +4318,9 @@ class VideomancerApp(QMainWindow):
                     # program state — RC11 uses "m", older docs said "ch"
                     m  = data.get("m",  data.get("ch", []))
                     sr = data.get("sr", [0]*12)
+                    # Log raw keys so we can verify firmware sends TSS
+                    self.console.append("ok", "program-state-keys",
+                                        str(list(data.keys())))
                     # Only apply TSS if the response actually includes them
                     # (avoid resetting to 512 from responses that omit TSS)
                     has_tss = "t" in data or "sp" in data or "sl" in data
@@ -4312,6 +4369,7 @@ class VideomancerApp(QMainWindow):
                 elif "parameters" in data and "id" in data:
                     # program info response — apply parameter names to UI
                     params = data.get("parameters", [])
+                    self.console.append("ok", "program-info", str(data))
                     self.param_tab.apply_param_labels(params)
                     # Show description in Programs tab if available
                     desc = data.get("description", data.get("desc", ""))
@@ -4514,17 +4572,18 @@ class VideomancerApp(QMainWindow):
         QTimer.singleShot(200, self._fetch_tss_readback_auto)
 
     def _poll_device(self):
-        """Poll device state for bidirectional sync every 500ms.
-        Always polls — editing lock controls what gets applied, not whether we poll."""
+        """Poll device state for bidirectional sync every 250ms.
+        Skip modulation polling while user is editing to prioritize sends."""
         if not self._worker:
             return
-        self._worker.send("modulation status")
+        if not self._user_editing:
+            self._worker.send("modulation status")
         if not hasattr(self, '_poll_count'):
             self._poll_count = 0
         self._poll_count += 1
-        if self._poll_count % 10 == 0:
+        if self._poll_count % 4 == 0:
             self._worker.send("transport status")
-        if self._poll_count % 50 == 0:
+        if self._poll_count % 20 == 0:
             self._worker.send("video status")
 
     def _request_state(self):
@@ -4563,6 +4622,7 @@ class VideomancerApp(QMainWindow):
     def _fetch_tss_readback(self):
         """Read back preset slot 0 to sync TSS sliders from device."""
         if self._worker:
+            self._tss_readback_pending = True
             self._worker.send("program presets get 0 user")
 
     def _fetch_tss_readback_auto(self):
@@ -4597,6 +4657,7 @@ class VideomancerApp(QMainWindow):
 
     def _apply_preset(self, index: int, type_str: str):
         if self._worker:
+            self.param_tab._last_sent.clear()  # Reset dedup so all values re-sync
             cmd = f"program presets apply {index} {type_str}"
             self.console.append("cmd", cmd, "")
             self._worker.send(cmd)

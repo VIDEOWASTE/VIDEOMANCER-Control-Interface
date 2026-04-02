@@ -139,6 +139,7 @@ class SerialWorker(QThread):
     def _write(self, text: str):
         try:
             self._serial.write(text.encode("ascii"))
+            self._serial.flush()
         except Exception as exc:
             self.error.emit(f"Write error: {exc}")
             self._running = False  # unplug during write — stop loop
