@@ -26,6 +26,7 @@ jobs:
             --icon "icon.icns" \
             --hidden-import serial.tools.list_ports \
             --collect-submodules PyQt6 \
+            --add-data "fonts:fonts" \
             main.py
 
       - name: Create zip
@@ -55,7 +56,7 @@ jobs:
 
       - name: Build .exe
         run: |
-          pyinstaller --onefile --windowed --name "VideomancerControl" --icon "icon.ico" --hidden-import serial.tools.list_ports main.py
+          pyinstaller --onefile --windowed --name "VideomancerControl" --icon "icon.ico" --hidden-import serial.tools.list_ports --add-data "fonts;fonts" main.py
 
       - name: Create zip
         run: |

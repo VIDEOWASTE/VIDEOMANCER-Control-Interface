@@ -13,7 +13,7 @@ Run:
     python3 main.py
 """
 
-APP_VERSION = "1.1"
+APP_VERSION = "1.2"
 GITHUB_REPO = "VIDEOWASTE/VIDEOMANCER-Control-Interface"
 
 import sys
@@ -110,7 +110,7 @@ STYLESHEET = f"""
 QMainWindow, QWidget {{
     background: {BG};
     color: {TEXT};
-    font-family: "SF Pro Display","Segoe UI","Helvetica Neue","Arial",sans-serif;
+    font-family: "Goldplay","SF Pro Display","Segoe UI","Helvetica Neue","Arial",sans-serif;
     font-size: 14px;
 }}
 QGroupBox {{
@@ -126,6 +126,7 @@ QGroupBox::title {{
     left: 12px;
     padding: 0 5px;
     color: {TEXT_DIM};
+    font-family: "Goldplay","SF Pro Display",sans-serif;
     font-size: 10px;
     letter-spacing: 2px;
     font-weight: bold;
@@ -165,6 +166,7 @@ QTabBar::tab {{
     border: 2px solid #444444;
     color: #777777;
     padding: 10px 28px;
+    font-family: "Goldplay","SF Pro Display",sans-serif;
     font-size: 19px;
     font-weight: bold;
     letter-spacing: 2px;
@@ -1682,7 +1684,7 @@ class ChannelCard(QWidget):
         self._num_lbl = QLabel(f"P{index+1} -")
         self._num_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._num_lbl.setStyleSheet(
-            f"color:#ffffff;font-weight:bold;font-size:14px;"
+            f"color:#ffffff;font-weight:bold;font-size:20px;"
             f"background:transparent;border:none;"
         )
         top_hdr.addWidget(self._num_lbl)
@@ -1690,7 +1692,7 @@ class ChannelCard(QWidget):
         self._param_name_lbl = QLabel("")
         self._param_name_lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignCenter)
         self._param_name_lbl.setStyleSheet(
-            f"color:#ffffff;font-size:14px;font-weight:bold;letter-spacing:1px;"
+            f"color:#ffffff;font-size:20px;font-weight:bold;letter-spacing:1px;"
             f"background:transparent;border:none;"
         )
         self._param_name_lbl.setVisible(False)
@@ -2257,13 +2259,13 @@ class ParametersTab(QWidget):
         fader_v.setContentsMargins(4, 8, 4, 8)
         fader_v.setSpacing(4)
 
-        p12_lbl = QLabel("P12")
-        p12_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        p12_lbl.setStyleSheet(
-            f"color:#ffffff;font-size:16px;font-weight:bold;"
+        self._p12_name_lbl = QLabel("INTENSITY")
+        self._p12_name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._p12_name_lbl.setStyleSheet(
+            f"color:#ffffff;font-size:20px;font-weight:bold;letter-spacing:1px;"
             f"background:transparent;border:none;"
         )
-        fader_v.addWidget(p12_lbl)
+        fader_v.addWidget(self._p12_name_lbl)
         fader_v.addSpacing(6)
 
         # Create P12 ChannelCard but use its slider vertically
@@ -2421,6 +2423,13 @@ class ParametersTab(QWidget):
                 card.set_param_label(name, lo, hi)
             else:
                 card.set_param_label(f"P{i+1}", 0, 100)
+        # Update the P12 fader title from param name
+        if hasattr(self, '_p12_name_lbl'):
+            if 11 < len(params):
+                name = params[11].get("name", "INTENSITY")
+                self._p12_name_lbl.setText(name.upper())
+            else:
+                self._p12_name_lbl.setText("INTENSITY")
 
     def set_tss_panel(self, ch: int, t: int, sp: int, sl: int):
         """Update per-card TSS sliders from device state."""
@@ -3158,7 +3167,8 @@ class SystemTab(QWidget):
         top = QHBoxLayout()
         title = QLabel("SYSTEM")
         title.setStyleSheet(
-            f"color:#ffffff;font-size:22px;font-weight:bold;"
+            f"color:#ffffff;font-family:'Goldplay',sans-serif;"
+            f"font-size:22px;font-weight:bold;"
             f"letter-spacing:3px;{self._TRANSPARENT}"
         )
         top.addWidget(title)
@@ -3535,7 +3545,8 @@ class StateTab(QWidget):
         top = QHBoxLayout()
         title = QLabel("STATE")
         title.setStyleSheet(
-            f"color:#ffffff;font-size:22px;font-weight:bold;"
+            f"color:#ffffff;font-family:'Goldplay',sans-serif;"
+            f"font-size:22px;font-weight:bold;"
             f"letter-spacing:3px;background:transparent;border:none;"
         )
         top.addWidget(title)
@@ -3989,6 +4000,7 @@ class VideomancerApp(QMainWindow):
         logo_lbl = QLabel('VIDEOMANCER <span style="font-size:16px;">— Control Interface</span>')
         logo_lbl.setStyleSheet(
             "background:transparent;border:none;color:#ffffff;"
+            "font-family:'Goldplay',sans-serif;"
             "font-size:28px;font-weight:900;letter-spacing:4px;"
         )
         lay.addWidget(logo_lbl)
@@ -4774,6 +4786,15 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Videomancer Control")
     app.setOrganizationName("LZX Industries")
+
+    # Load custom fonts (works both from source and PyInstaller bundle)
+    from PyQt6.QtGui import QFontDatabase
+    base = Path(getattr(sys, '_MEIPASS', Path(__file__).parent))
+    font_dir = base / "fonts"
+    for font_file in ["goldplay-semibold.ttf", "ReliefSingleLine-Regular.ttf"]:
+        fpath = font_dir / font_file
+        if fpath.exists():
+            QFontDatabase.addApplicationFont(str(fpath))
 
     # Set app icon from embedded splash image
     try:
